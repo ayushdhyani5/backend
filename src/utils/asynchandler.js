@@ -25,4 +25,4 @@ const asyncHandler = (reqHandler) => {
 //         })
 //     }
 // }
-export default asyncHandler;
+export { asyncHandler };
