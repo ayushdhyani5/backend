@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
 import { upload } from "../middlewares/multer.midleware.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
 
 const registerUser = asyncHandler(async (req, res) => {
     //get user detail from frontend
@@ -15,17 +16,17 @@ const registerUser = asyncHandler(async (req, res) => {
     // remove password and refresh token field from response
     // check for user creation
     //return res
-    console.log("request body : ", req.body)
-    const { username, email, password, fullName } = req.body
-    console.log("email", email)
+    // console.log("request body : ", req.body)
+    const { userName, email, password, fullName } = req.body
 
-    if ([fullName, email, password, username].some((field => field?.trim() === ""))) {
+
+    if ([fullName, email, password, userName].some((field => field?.trim() === ""))) {
 
         throw new ApiError(400, "all fields are required")
     }
 
     const existingUser = await User.findOne({
-        $or: [{ username }, { email }]
+        $or: [{ userName }, { email }]
     })
     console.log("existingUser", existingUser)
     if (existingUser) {
@@ -34,13 +35,31 @@ const registerUser = asyncHandler(async (req, res) => {
 
     const avatarLocalPath = req.files?.avatar[0]?.path
     const coverImageLocalPath = req.files?.coverImage[0]?.path
-    console.log("files", avatarLocalPath, coverImageLocalPath)
-    // if (!avatarLocalPath) {
-    //     throw new ApiError(400, "Avatar file is required")
-    // }
+    // console.log("files", avatarLocalPath, coverImageLocalPath)
+    if (!avatarLocalPath) {
+        throw new ApiError(400, "Avatar file is required")
+    }
     const avatar = await uploadOnCloudinary(avatarLocalPath)
-    console.log(avatar)
+    // console.log(avatar);
 
+    const coverImage = await uploadOnCloudinary(coverImageLocalPath)
+    if (!avatar) {
+        throw new ApiError(400, "Error while uploading on cloudinary")
+    }
+    const user = await User.create({
+        fullName,
+        avatar: avatar.url,
+        email,
+        password,
+        userName: userName.toLowerCase(),
+        coverImage: coverImage?.url || ""
+    })
+    const createdUser = await User.findById(user._id).select("-password -refreshToken ")
+    if (!createdUser) {
+        throw new ApiError(500, "Something went wrong while creating user")
+    }
+
+    return res.status(201).json(new ApiResponse(200, createdUser, "User created successfully"))
 })
 
 
