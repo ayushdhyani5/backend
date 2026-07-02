@@ -5,6 +5,7 @@ import { upload } from "../middlewares/multer.midleware.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken"
+import mongoose from "mongoose";
 const generateAccessAndRefreshToken = async (userId) => {
     try {
         const user = await User.findById(userId)
@@ -361,9 +362,54 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     status(200).
     json(new ApiResponse(200,channel,"Channel details fetched successfully"))
 
-
 })
 
+const watchHistory=asyncHandler(async(req,res)=>{
+    const user =await User.aggregate([
+        {
+            $match:{
+                _id:new mongoose.Types.ObjectId(req.user?._id)
+            }
+        },
+        {
+            $lookup:{
+                from:"videos",
+                localField:"watchHistory",
+                foreignField:"_id",
+                as:"watchHistory",
+                pipeline:[
+                {
+                    $lookup:{
+                        from:"users",
+                        localField:"owner",
+                        foreignField:"_id",
+                        as:"owner",
+                        pipeline:[
+                            {
+                                $project:{
+                                    username:1,
+                                    fullName:1,
+                                    avatar:1 
+                                }
+                            } 
+                        ]
+                    }
+                },
+                {
+                    $addFields:{
+                        owner:{
+                            $first:"$owner"
+                        }
+                    }
+                }
+                ]
+            }
+        }
+    ])
+    return res.
+    status(200).
+    json(new ApiResponse(200,user[0].watchHistory,"watchHistory fetched successfully"))
+})
 
 export {
     registerUser,
@@ -374,5 +420,7 @@ export {
     getCurrentUser,
     updateAccountDetails,
     updateUserAvatar,
-    updateUserCoverImage
+    updateUserCoverImage,
+    getUserChannelProfile,
+    watchHistory
 }
